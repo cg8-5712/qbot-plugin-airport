@@ -4,9 +4,9 @@ Date: 2025-04-20
 Version: 1.0.0
 License: GPL-3.0
 LastEditTime: 2025-04-20 19:30:00
-Title: 机场信息查询插件
-Description: 该插件允许用户通过机场的 ICAO 代码查询机场信息。
-             结果可以以文本或图片的形式显示。
+Title: Airport Information Query Plugin
+Description: This plugin allows users to query airport information using ICAO codes.
+            Results can be displayed as text or image format.
 """
 
 from nonebot import on_command
@@ -23,12 +23,12 @@ from zhenxun.utils.message import MessageUtils
 from .airport import AirportInfo
 
 __plugin_meta__ = PluginMetadata(
-    name="机场信息查询",
-    description="查询机场信息",
+    name="Airport Information Query",
+    description="Query airport information",
     usage="""
-    指令:
-        @机器人 airport [机场ICAO代码]: 以图片形式显示
-        @机器人 airport [机场ICAO代码] --raw: 以文字形式显示
+    Commands:
+        @bot airport [ICAO code]: Display as image
+        @bot airport [ICAO code] --raw: Display as text
     """,
 )
 
@@ -38,24 +38,24 @@ AirportCommand = on_command("airport", rule=to_me(), priority=5, block=True)
 @AirportCommand.handle()
 async def handle_airport(event: GroupMessageEvent, args=CommandArg()):
     """
-    处理机场信息查询命令。
-    根据指定的机场 ICAO 代码获取机场信息。
-    结果可以以文本或图片的形式显示。
+    Handle airport information query command.
+    Get airport information based on the specified ICAO code.
+    Results can be displayed as text or image format.
     """
     args = args.extract_plain_text().strip().split()
     if not args:
         await MessageUtils.build_message([
             At(flag="user", target=str(event.user_id)),
-            Text("请提供机场 ICAO 代码")
+            Text("Please provide an ICAO code")
         ]).send(reply_to=True)
         return
 
     icao_code = args[0].upper()
     show_raw = len(args) > 1 and args[1] == "--raw"
 
-    # 获取机场信息
+    # Get airport information
     airport_data = await AirportInfo.get_airport_info(icao_code)
-    if isinstance(airport_data, str):  # 错误信息
+    if isinstance(airport_data, str):  # Error message
         await MessageUtils.build_message([
             At(flag="user", target=str(event.user_id)),
             Text(airport_data)
@@ -63,13 +63,13 @@ async def handle_airport(event: GroupMessageEvent, args=CommandArg()):
         return
 
     if show_raw:
-        text_output = AirportInfo.format_text_output(airport_data)
+        text_output = airport_data.format_text_output()
         await MessageUtils.build_message([
             At(flag="user", target=str(event.user_id)),
             Text(text_output)
         ]).send(reply_to=True)
     else:
-        template_data = AirportInfo.prepare_template_data(airport_data)
+        template_data = airport_data.prepare_template_data()
         image = await template_to_pic(
             template_path=str(
                 (TEMPLATE_PATH / "aviation" / "airport").absolute()

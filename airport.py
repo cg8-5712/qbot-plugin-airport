@@ -1,184 +1,280 @@
-"""
-Author: cg8-5712
-Date: 2025-04-20
-Version: 1.0.0
-License: GPL-3.0
-LastEditTime: 2025-04-25 19:30:00
-Title: 机场信息查询插件
-Description: 该插件允许用户通过机场的 ICAO 代码查询机场信息。
-             结果可以以文本或图片的形式显示。
-"""
-
 from dataclasses import dataclass, field
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 from datetime import datetime
 import aiohttp
 import asyncio
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@dataclass
+class Runway:
+    """Runway data model"""
+    id: str
+    dimension: str
+    surface: str
+    alignment: str
+    length: int = 0
+    width: int = 0
+
+    def __post_init__(self):
+        try:
+            dims = self.dimension.split('x')
+            self.length = int(dims[0])
+            self.width = int(dims[1])
+        except (IndexError, ValueError) as e:
+            logger.warning(f"Runway dimension parsing error: {e}")
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary format"""
+        return {
+            "id": self.id,
+            "dimension": self.dimension,
+            "surface": self.surface_type_map.get(self.surface, "Unknown"),
+            "alignment": self.alignment,
+            "length": self.length,
+            "width": self.width
+        }
+
+    surface_type_map = {
+        "H": "Hard Surface",
+        "S": "Soft Surface",
+        "G": "Grass",
+        "W": "Water",
+        "A": "Asphalt",
+        "C": "Concrete",
+        "T": "Tar",
+        "U": "Unpaved"
+    }
 
 @dataclass
 class AirportInfo:
-    """机场信息数据模型"""
+    """Airport information data model"""
     station_code: str
     icao_id: str
-    iata_id: str
-    faa_id: Union[str, None]
-    name: str
-    state: str
-    country: str
-    source: str
-    type: str
-    lat: float
-    lon: float
-    elev: int
-    magdec: str
-    owner: str
-    runways: List[Dict] = field(default_factory=list)
+    iata_id: Optional[str] = None
+    faa_id: Optional[str] = None
+    name: str = "N/A"
+    state: str = "N/A"
+    country: str = "N/A"
+    source: str = "N/A"
+    type: str = "N/A"
+    lat: float = 0.0
+    lon: float = 0.0
+    elev: int = 0
+    magdec: str = "N/A"
+    owner: str = "N/A"
+    runways: List[Runway] = field(default_factory=list)
     rwy_num: str = "N/A"
     rwy_length: str = "N/A"
     rwy_type: str = "N/A"
     services: str = "N/A"
     tower: str = "N/A"
     beacon: str = "N/A"
-    operations: Union[str, None] = "N/A"
-    passengers: Union[str, None] = "N/A"
-    freqs: Union[str, None] = "N/A"
+    operations: Optional[str] = None
+    passengers: Optional[str] = None
+    freqs: Dict[str, str] = field(default_factory=dict)
     priority: str = "N/A"
 
     @staticmethod
     async def get_airport_info(station_code: str) -> Union['AirportInfo', str]:
-        """获取机场信息"""
+        """Get airport information"""
         url = f"https://aviationweather.gov/api/data/airport?ids={station_code}&format=json"
+        timeout = aiohttp.ClientTimeout(total=15)
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             try:
-                async with session.get(url, timeout=15) as response:
+                async with session.get(url) as response:
                     if response.status != 200:
-                        return "获取数据失败"
+                        return f"Failed to get data: HTTP {response.status}"
                     data = await response.json()
             except asyncio.TimeoutError:
-                return "请求超时"
+                return "Request timeout"
             except aiohttp.ClientError as e:
-                return f"请求失败: {e}"
+                return f"Request failed: {str(e)}"
 
-        if not data or not data[0]:
-            return "未找到机场信息"
+        if not data or len(data) == 0:
+            return " Airport information not found"
 
         airport_data = data[0]
+        runways = [
+            Runway(
+                id=r['id'],
+                dimension=r['dimension'],
+                surface=r['surface'],
+                alignment=r['alignment']
+            ) for r in airport_data.get('runways', [])
+        ]
+
+        freqs = AirportInfo._parse_frequencies(airport_data.get('freqs'))
+
         return AirportInfo(
             station_code=station_code,
             icao_id=airport_data.get('icaoId', 'N/A'),
-            iata_id=airport_data.get('iataId', 'N/A'),
-            faa_id=airport_data.get('faaId', None),
+            iata_id=airport_data.get('iataId'),
+            faa_id=airport_data.get('faaId'),
             name=airport_data.get('name', 'N/A'),
             state=airport_data.get('state', 'N/A'),
             country=airport_data.get('country', 'N/A'),
             source=airport_data.get('source', 'N/A'),
             type=airport_data.get('type', 'N/A'),
-            lat=airport_data.get('lat', 0.0),
-            lon=airport_data.get('lon', 0.0),
-            elev=airport_data.get('elev', 0),
+            lat=float(airport_data.get('lat', 0.0)),
+            lon=float(airport_data.get('lon', 0.0)),
+            elev=int(airport_data.get('elev', 0)),
             magdec=airport_data.get('magdec', 'N/A'),
-            owner=airport_data.get('owner', 'N/A'),
-            runways=airport_data.get('runways', []),
-            rwy_num=str(len(airport_data.get('runways', []))),
-            rwy_length=AirportInfo._determine_runway_length(airport_data.get('runways', [])),
-            rwy_type=AirportInfo._determine_runway_type(airport_data.get('runways', [])),
-            services=airport_data.get('services', 'N/A'),
-            tower=airport_data.get('tower', 'N/A'),
-            beacon=airport_data.get('beacon', 'N/A'),
-            operations=airport_data.get('operations', None),
-            passengers=airport_data.get('passengers', None),
-            freqs=airport_data.get('freqs', None),
+            owner=AirportInfo._parse_owner_type(airport_data.get('owner', '')),
+            runways=runways,
+            rwy_num=str(len(runways)),
+            rwy_length=AirportInfo._determine_runway_length(runways),
+            rwy_type=AirportInfo._determine_runway_type(runways),
+            services=AirportInfo._parse_services(airport_data.get('services', '')),
+            tower=AirportInfo._parse_tower_status(airport_data.get('tower', '')),
+            beacon=AirportInfo._parse_beacon_status(airport_data.get('beacon', '')),
+            operations=airport_data.get('operations'),
+            passengers=airport_data.get('passengers'),
+            freqs=freqs,
             priority=airport_data.get('priority', 'N/A')
         )
 
     @staticmethod
-    def _determine_runway_length(runways: List[Dict]) -> str:
-        """根据跑道长度判断跑道类型"""
+    def _parse_frequencies(freq_str: Optional[str]) -> Dict[str, str]:
+        """Parse frequency string"""
+        if not freq_str:
+            return {}
+
+        freqs = {}
+        try:
+            for freq in freq_str.split(';'):
+                if ',' not in freq:
+                    continue
+                service, frequency = freq.split(',')
+                freqs[service.strip()] = frequency.strip()
+        except Exception as e:
+            logger.error(f"Frequency parsing error: {e}")
+        return freqs
+
+    @staticmethod
+    def _parse_owner_type(owner: str) -> str:
+        """Parse ownership type"""
+        owner_map = {
+            'P': 'Public Airport',
+            'R': 'Private Airport',
+            'M': 'Military Airport',
+            'J': 'Joint Use Airport'
+        }
+        return owner_map.get(owner, 'Unknown Ownership')
+
+    @staticmethod
+    def _parse_services(services: str) -> str:
+        """Parse service identifier"""
+        service_map = {
+            'S': 'Full Service',
+            'P': 'Partial Service',
+            'L': 'Limited Service',
+            'N': 'No Service'
+        }
+        return service_map.get(services, 'Unknown Service Type')
+
+    @staticmethod
+    def _parse_tower_status(tower: str) -> str:
+        """Parse tower status"""
+        tower_map = {
+            'T': 'Tower Available',
+            'N': 'No Tower'
+        }
+        return tower_map.get(tower, 'Unknown Tower Status')
+
+    @staticmethod
+    def _parse_beacon_status(beacon: str) -> str:
+        """Parse beacon status"""
+        beacon_map = {
+            'B': 'Beacon Available',
+            'N': 'No Beacon'
+        }
+        return beacon_map.get(beacon, 'Unknown Beacon Status')
+
+    @staticmethod
+    def _determine_runway_length(runways: List[Runway]) -> str:
+        """Determine runway class based on length"""
         if not runways:
             return "N/A"
-        max_length = max([int(r['dimension'].split('x')[0]) for r in runways])
+        max_length = max(runway.length for runway in runways)
         if max_length > 12000:
-            return "L"
+            return "Large Airport"
         elif 6000 < max_length <= 12000:
-            return "M"
+            return "Medium Airport"
         else:
-            return "S"
+            return "Small Airport"
 
     @staticmethod
-    def _determine_runway_type(runways: List[Dict]) -> str:
-        """确定跑道表面类型"""
+    def _determine_runway_type(runways: List[Runway]) -> str:
+        """Determine runway surface type"""
         if not runways:
             return "N/A"
-        # 假设所有跑道类型相同
-        return runways[0].get('surface', 'N/A')
+        return Runway.surface_type_map.get(runways[0].surface, "Unknown Type")
 
-    @staticmethod
-    def format_text_output(airport_data: 'AirportInfo') -> str:
-        """格式化文本输出"""
-        output = f"""== {airport_data.name} 机场信息 ==
-ICAO 代码: {airport_data.icao_id}
-IATA 代码: {airport_data.iata_id or 'N/A'}
-FAA 代码: {airport_data.faa_id or 'N/A'}
-位置: {airport_data.lat}, {airport_data.lon}
-海拔: {airport_data.elev} 米
-磁偏角: {airport_data.magdec}
-所属: {airport_data.owner}
-跑道数量: {airport_data.rwy_num}
-跑道长度: {airport_data.rwy_length}
-跑道类型: {airport_data.rwy_type}
-服务: {airport_data.services}
-塔台: {airport_data.tower}
-信标: {airport_data.beacon}
-运营状态: {airport_data.operations or 'N/A'}
-年旅客吞吐量: {airport_data.passengers or 'N/A'}
-频率: {airport_data.freqs or 'N/A'}
-优先级: {airport_data.priority}
+    def format_text_output(self) -> str:
+        """Format text output"""
+        output = f"""== {self.name} Airport Information ==
+ICAO Code: {self.icao_id}
+IATA Code: {self.iata_id or 'N/A'}
+FAA Code: {self.faa_id or 'N/A'}
+Location: {self.lat}, {self.lon}
+Elevation: {self.elev} meters
+Magnetic Declination: {self.magdec}
+Ownership: {self.owner}
+Number of Runways: {self.rwy_num}
+Airport Class: {self.rwy_length}
+Runway Type: {self.rwy_type}
+Services: {self.services}
+Tower: {self.tower}
+Beacon: {self.beacon}
+Operations Status: {self.operations or 'N/A'}
+Annual Passengers: {self.passengers or 'N/A'} million
+Frequencies:"""
 
-== 跑道信息 =="""
+        for service, freq in self.freqs.items():
+            output += f"\n  {service}: {freq}"
 
-        for runway in airport_data.runways:
+        output += "\n\n== Runway Information =="
+        for runway in self.runways:
+            rwy_dict = runway.to_dict()
             output += f"""
-跑道编号: {runway['id']}
-尺寸: {runway['dimension']}
-表面类型: {runway['surface']}
-方位角: {runway['alignment']}"""
+Runway Number: {rwy_dict['id']}
+Dimensions: {rwy_dict['length']}x{rwy_dict['width']} meters
+Surface Type: {rwy_dict['surface']}
+Alignment: {rwy_dict['alignment']}°"""
 
         return output
 
-    @staticmethod
-    def prepare_template_data(airport_data: 'AirportInfo') -> Dict:
-        """准备模板数据"""
-        runway_rows = []
-        for runway in airport_data.runways:
-            runway_rows.append({
-                "id": runway['id'],
-                "dimension": runway['dimension'],
-                "surface": runway['surface'],
-                "alignment": runway['alignment']
-            })
-
+    def prepare_template_data(self) -> Dict:
+        """Prepare template data"""
         return {
-            "station_code": airport_data.station_code,
+            "station_code": self.station_code,
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "name": airport_data.name,
-            "icao_id": airport_data.icao_id,
-            "iata_id": airport_data.iata_id or 'N/A',
-            "faa_id": airport_data.faa_id or 'N/A',
-            "lat": airport_data.lat,
-            "lon": airport_data.lon,
-            "elev": airport_data.elev,
-            "magdec": airport_data.magdec,
-            "owner": airport_data.owner,
-            "rwy_num": airport_data.rwy_num,
-            "rwy_length": airport_data.rwy_length,
-            "rwy_type": airport_data.rwy_type,
-            "services": airport_data.services,
-            "tower": airport_data.tower,
-            "beacon": airport_data.beacon,
-            "operations": airport_data.operations or 'N/A',
-            "passengers": airport_data.passengers or 'N/A',
-            "freqs": airport_data.freqs or 'N/A',
-            "priority": airport_data.priority,
-            "runways": runway_rows
+            "name": self.name,
+            "icao_id": self.icao_id,
+            "iata_id": self.iata_id or 'N/A',
+            "faa_id": self.faa_id or 'N/A',
+            "state": self.state,
+            "country": self.country,
+            "source": self.source,
+            "type": self.type,
+            "lat": self.lat,
+            "lon": self.lon,
+            "elev": self.elev,
+            "magdec": self.magdec,
+            "owner": self.owner,
+            "rwy_num": self.rwy_num,
+            "rwy_length": self.rwy_length,
+            "rwy_type": self.rwy_type,
+            "services": self.services,
+            "tower": self.tower,
+            "beacon": self.beacon,
+            "operations": self.operations or 'N/A',
+            "passengers": f"{self.passengers or 'N/A'} million",
+            "freqs": self.freqs,
+            "priority": self.priority,
+            "runways": [runway.to_dict() for runway in self.runways]
         }

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f2f5;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 24px;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .header h2 {
+            margin: 0;
+            color: #111827;
+            font-size: 24px;
+        }
+        .header p {
+            margin: 8px 0 0;
+            color: #6b7280;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .info-section {
+            background: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+        }
+        .info-section h3 {
+            margin: 0 0 16px;
+            color: #111827;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .info-item {
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+        .label {
+            font-weight: 500;
+            color: #4b5563;
+            margin-right: 8px;
+        }
+        .value {
+            color: #1f2937;
+        }
+        .runway-section {
+            margin-top: 24px;
+            background: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+        }
+        .runway-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 12px;
+        }
+        .runway-table th {
+            background: #e5e7eb;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-top: 1px solid #d1d5db;
+        }
+        .runway-table td {
+            padding: 12px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .runway-table tr:first-child th:first-child {
+            border-top-left-radius: 8px;
+        }
+        .runway-table tr:first-child th:last-child {
+            border-top-right-radius: 8px;
+        }
+        .freq-section {
+            margin-top: 24px;
+            background: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+        }
+        .freq-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .freq-item {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .freq-service {
+            font-weight: 500;
+            color: #4b5563;
+            margin-bottom: 4px;
+        }
+        .freq-value {
+            color: #1f2937;
+        }
+        .time {
+            margin-top: 24px;
+            text-align: right;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .diagram-section svg {
+            width: 100%;
+            height: auto;
+            max-width: 220px;
+            margin: 0 auto;
+            display: block;
+        }
+        .compass-mark {
+            font-size: 12px;
+            fill: #6b7280;
+            text-anchor: middle;
+        }
+        .north-mark {
+            fill: #ef4444;
+            font-weight: 600;
+        }
+        .runway-id {
+            font-size: 14px;
+            font-weight: 500;
+            fill: #1f2937;
+        }
+        .runway-length {
+            font-size: 12px;
+            fill: #6b7280;
+        }
+
+        @media (max-width: 768px) {
+            .diagram-section svg {
+                max-width: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>{{ name }}</h2>
+            <p>{{ icao_id }} • {{ station_code }}</p>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-section">
+                <h3>Basic Information</h3>
+                <div class="info-item">
+                    <span class="label">IATA Code:</span>
+                    <span class="value">{{ iata_id }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">FAA Code:</span>
+                    <span class="value">{{ faa_id }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">State/Province:</span>
+                    <span class="value">{{ state }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Country:</span>
+                    <span class="value">{{ country }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Type:</span>
+                    <span class="value">{{ type }}</span>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h3>Location Details</h3>
+                <div class="info-item">
+                    <span class="label">Coordinates:</span>
+                    <span class="value">{{ lat }}°, {{ lon }}°</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Elevation:</span>
+                    <span class="value">{{ elev }} meters</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Magnetic Declination:</span>
+                    <span class="value">{{ magdec }}</span>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h3>Operations</h3>
+                <div class="info-item">
+                    <span class="label">Ownership:</span>
+                    <span class="value">{{ owner }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Services:</span>
+                    <span class="value">{{ services }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Tower Status:</span>
+                    <span class="value">{{ tower }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Beacon:</span>
+                    <span class="value">{{ beacon }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Annual Passengers:</span>
+                    <span class="value">{{ passengers }}</span>
+                </div>
+            </div>
+
+            <div class="info-section diagram-section">
+                <h3>Runway Orientation</h3>
+                <svg viewBox="-120 -120 240 240">
+                    <circle cx="0" cy="0" r="100" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+                    <circle cx="0" cy="0" r="80" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+
+                    {% for i in range(0, 360, 30) %}
+                    <line
+                        x1="0"
+                        y1="-95"
+                        x2="0"
+                        y2="{% if i % 90 == 0 %}-75{% else %}-85{% endif %}"
+                        stroke="#6b7280"
+                        stroke-width="{% if i % 90 == 0 %}2{% else %}1{% endif %}"
+                        transform="rotate({{ i }})"/>
+                    <text
+                        x="0"
+                        y="-60"
+                        class="compass-mark"
+                        transform="rotate({{ i }})">{{ "%03d"|format(i) }}</text>
+                    {% endfor %}
+
+                    {% for runway in runways %}
+                    {% set angle = runway.alignment|float %}
+                    <g transform="rotate({{ angle }})">
+                        <rect
+                            x="-8"
+                            y="-50"
+                            width="16"
+                            height="100"
+                            fill="#3b82f6"
+                            opacity="0.6"
+                            rx="2"/>
+                        <text
+                            x="20"
+                            y="-30"
+                            class="runway-id">{{ runway.id }}</text>
+                        <text
+                            x="20"
+                            y="-15"
+                            class="runway-length">{{ runway.dimension }}</text>
+                    </g>
+                    {% endfor %}
+
+                    <path d="M0,-105 L-5,-95 L5,-95 Z" fill="#ef4444"/>
+                    <text x="0" y="-110" class="compass-mark north-mark">N</text>
+                </svg>
+            </div>
+        </div>
+
+        <div class="runway-section">
+            <h3>Runway Information</h3>
+            <table class="runway-table">
+                <tr>
+                    <th>Runway</th>
+                    <th>Dimensions</th>
+                    <th>Surface</th>
+                    <th>Alignment</th>
+                </tr>
+                {% for runway in runways %}
+                <tr>
+                    <td>{{ runway.id }}</td>
+                    <td>{{ runway.dimension }}</td>
+                    <td>{{ runway.surface }}</td>
+                    <td>{{ runway.alignment }}°</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <div class="freq-section">
+            <h3>Radio Frequencies</h3>
+            <div class="freq-grid">
+                {% for service, freq in freqs.items() %}
+                <div class="freq-item">
+                    <div class="freq-service">{{ service }}</div>
+                    <div class="freq-value">{{ freq }} MHz</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="time">
+            Last Updated: {{ current_time }}
+        </div>
+    </div>
+</body>
+</html>
