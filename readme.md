@@ -44,7 +44,7 @@ A Zhenxun Bot plugin that allows users to query airport information using ICAO c
 1. Place the plugin files in your Zhenxun Bot plugins directory:
 ```bash
 cd zhenxun_bot/plugins/
-git clone https://github.com/yourusername/qbot-plugin-airport.git
+git clone https://github.com/cg8-5712/qbot-plugin-airport.git
 ```
 
 2. Install required dependencies:
